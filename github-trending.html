@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TechTrend — GitHub Trending Today</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --accent2: #3fb950;
+      --accent3: #f78166;
+      --star: #e3b341;
+      --text: #e6edf3;
+      --text2: #8b949e;
+      --tag-bg: #1f3243;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.45);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .logo svg { color: var(--accent); }
+    .logo span { color: var(--accent); }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #last-updated {
+      font-size: 0.78rem;
+      color: var(--text2);
+    }
+    #refresh-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .2s;
+    }
+    #refresh-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #refresh-btn.loading svg { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Controls ── */
+    .controls {
+      max-width: 1200px;
+      margin: 24px auto 0;
+      padding: 0 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .filter-label {
+      font-size: 0.82rem;
+      color: var(--text2);
+      font-weight: 500;
+    }
+    .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 5px 13px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all .18s;
+      user-select: none;
+    }
+    .pill:hover { border-color: var(--accent); color: var(--accent); }
+    .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+    .search-wrap {
+      margin-left: auto;
+      position: relative;
+    }
+    #search {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 7px 12px 7px 34px;
+      font-size: 0.85rem;
+      outline: none;
+      width: 220px;
+      transition: border-color .2s;
+    }
+    #search::placeholder { color: var(--text2); }
+    #search:focus { border-color: var(--accent); }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text2);
+      pointer-events: none;
+    }
+
+    /* ── Stats bar ── */
+    #stats-bar {
+      max-width: 1200px;
+      margin: 12px auto 0;
+      padding: 0 24px;
+      font-size: 0.8rem;
+      color: var(--text2);
+    }
+    #stats-bar span { color: var(--accent); font-weight: 600; }
+
+    /* ── Grid ── */
+    #grid {
+      max-width: 1200px;
+      margin: 16px auto 48px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 18px;
+    }
+
+    /* ── Skeleton ── */
+    .skeleton {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      animation: pulse 1.4s ease infinite;
+    }
+    .sk-line { background: var(--surface2); border-radius: 4px; height: 12px; margin-bottom: 10px; }
+    .sk-line.short { width: 40%; }
+    .sk-line.med { width: 70%; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      cursor: pointer;
+      transition: transform .2s, border-color .2s, box-shadow .2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: var(--shadow); }
+    .card:hover::before { opacity: 1; }
+    .card.expanded { border-color: var(--accent); }
+    .card.expanded::before { opacity: 1; }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .repo-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .repo-name .owner { color: var(--text2); font-weight: 400; }
+    .rank-badge {
+      background: linear-gradient(135deg, #f9a825, #e65100);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .rank-badge.top1 { background: linear-gradient(135deg, #ffd700, #ff8f00); }
+    .rank-badge.top2 { background: linear-gradient(135deg, #c0c0c0, #757575); }
+    .rank-badge.top3 { background: linear-gradient(135deg, #cd7f32, #a1632a); }
+
+    .stars {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.88rem;
+      color: var(--star);
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Brief use-case */
+    .usecase {
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: var(--text2);
+      margin-bottom: 12px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card.expanded .usecase { -webkit-line-clamp: unset; }
+
+    /* Practical highlight */
+    .practical-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(58, 185, 80, 0.1);
+      border: 1px solid rgba(58, 185, 80, 0.25);
+      color: var(--accent2);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    /* Expanded details */
+    .details {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      animation: fadeIn .25s ease;
+    }
+    .card.expanded .details { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+    .full-desc {
+      font-size: 0.83rem;
+      line-height: 1.6;
+      color: var(--text2);
+      margin-bottom: 12px;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .detail-item {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .detail-item .label { font-size: 0.7rem; color: var(--text2); margin-bottom: 2px; }
+    .detail-item .val { font-size: 0.85rem; font-weight: 600; }
+
+    .topics { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    .topic {
+      background: var(--tag-bg);
+      color: var(--accent);
+      padding: 2px 9px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+    }
+
+    .card-actions { display: flex; gap: 8px; }
+    .btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: opacity .18s;
+    }
+    .btn:hover { opacity: .8; }
+    .btn-primary { background: var(--accent); color: #0d1117; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+    .toggle-hint {
+      font-size: 0.72rem;
+      color: var(--text2);
+      margin-top: 10px;
+      text-align: right;
+    }
+
+    /* ── Language dot ── */
+    .lang-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .lang-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      color: var(--text2);
+    }
+
+    /* ── Empty / Error ── */
+    #empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text2);
+    }
+    #empty h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--text); }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 0.75rem;
+      color: var(--text2);
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      header { flex-wrap: wrap; gap: 10px; }
+      .controls { gap: 8px; }
+      .search-wrap { margin-left: 0; width: 100%; }
+      #search { width: 100%; }
+      #grid { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+    Tech<span>Trend</span>
+  </div>
+  <div class="header-right">
+    <span id="last-updated">Đang tải...</span>
+    <button id="refresh-btn" onclick="loadRepos()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<div class="controls">
+  <span class="filter-label">Khoảng thời gian:</span>
+  <div class="pill-group" id="period-group">
+    <span class="pill active" data-days="1">Hôm nay</span>
+    <span class="pill" data-days="7">7 ngày</span>
+    <span class="pill" data-days="30">30 ngày</span>
+  </div>
+
+  <span class="filter-label" style="margin-left:8px">Ngôn ngữ:</span>
+  <div class="pill-group" id="lang-group">
+    <span class="pill active" data-lang="">Tất cả</span>
+    <span class="pill" data-lang="Python">Python</span>
+    <span class="pill" data-lang="JavaScript">JavaScript</span>
+    <span class="pill" data-lang="TypeScript">TypeScript</span>
+    <span class="pill" data-lang="Go">Go</span>
+    <span class="pill" data-lang="Rust">Rust</span>
+  </div>
+
+  <div class="search-wrap">
+    <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input id="search" type="text" placeholder="Tìm repo..." oninput="filterCards()" />
+  </div>
+</div>
+
+<div id="stats-bar">Đang tải dữ liệu từ GitHub...</div>
+
+<div id="grid"></div>
+
+<footer>
+  Dữ liệu từ <a href="https://github.com" target="_blank">GitHub API</a> &mdash; Tự động cập nhật mỗi ngày &mdash; Built by TechTrend
+</footer>
+
+<script>
+// ── Config ──────────────────────────────────────────────
+const LANG_COLORS = {
+  Python:'#3572A5', JavaScript:'#f1e05a', TypeScript:'#3178c6',
+  Go:'#00ADD8', Rust:'#dea584', Java:'#b07219', C:'#555555',
+  'C++':'#f34b7d', Ruby:'#701516', PHP:'#4F5D95', Swift:'#F05138',
+  Kotlin:'#A97BFF', 'C#':'#178600', Shell:'#89e051', Dart:'#00B4AB',
+  Scala:'#c22d40', Lua:'#000080', R:'#198CE7', Vim:'#199f4b',
+  Haskell:'#5e5086', HTML:'#e34c26', CSS:'#563d7c', Vue:'#41b883',
+};
+
+const PRACTICAL_LABELS = [
+  '🚀 Production-ready', '🔥 Hot this week', '⚡ Performance boost',
+  '🤖 AI-powered', '🛠️ Dev tool', '📦 Drop-in library',
+  '🌐 Full-stack', '🔒 Security tool', '📊 Data science', '🎨 UI/UX',
+  '☁️ Cloud native', '📱 Mobile-friendly',
+];
+
+function getPracticalLabel(repo) {
+  const topics = (repo.topics || []).join(' ').toLowerCase();
+  const desc = (repo.description || '').toLowerCase();
+  const lang = (repo.language || '').toLowerCase();
+  if (/ai|ml|llm|gpt|neural|deep.?learn|machine.?learn/.test(desc + topics)) return '🤖 AI-powered';
+  if (/security|auth|encrypt|hack|pentest|vuln/.test(desc + topics)) return '🔒 Security tool';
+  if (/data|pandas|numpy|spark|csv|dataset|analytics/.test(desc + topics + lang)) return '📊 Data science';
+  if (/ui|design|css|tailwind|frontend|component/.test(desc + topics)) return '🎨 UI/UX';
+  if (/cli|tool|dev|devops|docker|k8s|kubernetes/.test(desc + topics)) return '🛠️ Dev tool';
+  if (/cloud|aws|gcp|azure|serverless|lambda/.test(desc + topics)) return '☁️ Cloud native';
+  if (repo.stargazers_count > 5000) return '🔥 Hot this week';
+  if (/mobile|ios|android|flutter|react.?native/.test(desc + topics)) return '📱 Mobile-friendly';
+  return '🚀 Production-ready';
+}
+
+function formatStars(n) {
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return n.toString();
+}
+
+function timeAgo(dateStr) {
+  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  if (diff < 3600) return Math.floor(diff / 60) + ' phút trước';
+  if (diff < 86400) return Math.floor(diff / 3600) + ' giờ trước';
+  return Math.floor(diff / 86400) + ' ngày trước';
+}
+
+function getBriefUsecase(repo) {
+  const desc = repo.description || 'Chưa có mô tả.';
+  const lang = repo.language ? ` (${repo.language})` : '';
+  // Short punchy summary
+  if (desc.length <= 80) return desc + lang;
+  return desc.slice(0, 77) + '…';
+}
+
+function getFullDesc(repo) {
+  const desc = repo.description || 'Repo này chưa có mô tả. Xem chi tiết trên GitHub.';
+  const lang = repo.language ? `\n\n🔧 Ngôn ngữ chính: **${repo.language}**` : '';
+  const topics = repo.topics?.length ? `\n🏷️ Tags: ${repo.topics.slice(0,6).join(', ')}` : '';
+  return desc + lang + topics;
+}
+
+// ── State ────────────────────────────────────────────────
+let allRepos = [];
+let activeDays = 1;
+let activeLang = '';
+
+// ── Fetch ─────────────────────────────────────────────────
+async function fetchGitHub(days, lang) {
+  const date = new Date(Date.now() - days * 864e5).toISOString().split('T')[0];
+  let q = `created:>${date}`;
+  if (lang) q += `+language:${encodeURIComponent(lang)}`;
+  const url = `https://api.github.com/search/repositories?q=${q}&sort=stars&order=desc&per_page=30`;
+  const res = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+  const data = await res.json();
+  return data.items || [];
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderSkeletons(n = 9) {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = Array.from({length: n}, () => `
+    <div class="skeleton">
+      <div class="sk-line" style="width:60%;height:16px"></div>
+      <div class="sk-line med"></div>
+      <div class="sk-line short"></div>
+      <div class="sk-line" style="width:80%"></div>
+    </div>
+  `).join('');
+}
+
+function rankBadge(i) {
+  if (i === 0) return '<span class="rank-badge top1">🥇 #1</span>';
+  if (i === 1) return '<span class="rank-badge top2">🥈 #2</span>';
+  if (i === 2) return '<span class="rank-badge top3">🥉 #3</span>';
+  return `<span class="rank-badge">#${i+1}</span>`;
+}
+
+function renderCard(repo, index) {
+  const color = LANG_COLORS[repo.language] || '#8b949e';
+  const practical = getPracticalLabel(repo);
+  const topicsHtml = (repo.topics || []).slice(0, 5).map(t =>
+    `<span class="topic">${t}</span>`
+  ).join('');
+
+  return `
+  <div class="card" id="card-${repo.id}" onclick="toggleCard(${repo.id})">
+    <div class="card-header">
+      <div class="repo-name">
+        ${rankBadge(index)}
+        <span class="owner">${repo.owner.login}/</span>${repo.name}
+      </div>
+      <div class="stars">
+        ⭐ ${formatStars(repo.stargazers_count)}
+      </div>
+    </div>
+
+    <div class="practical-tag">${practical}</div>
+
+    <div class="usecase">${escHtml(getBriefUsecase(repo))}</div>
+
+    ${repo.language ? `
+    <div class="lang-badge">
+      <span class="lang-dot" style="background:${color}"></span>
+      ${escHtml(repo.language)}
+    </div>` : ''}
+
+    <div class="details">
+      <div class="full-desc">${escHtml(repo.description || 'Chưa có mô tả chi tiết.')}</div>
+
+      ${repo.topics?.length ? `<div class="topics">${topicsHtml}</div>` : ''}
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="label">⭐ Stars</div>
+          <div class="val" style="color:var(--star)">${repo.stargazers_count.toLocaleString()}</div>
+        </div>
+        <div class="detail-item">
+          <div class="label">🍴 Forks</div>
+          <div class="val">${repo.forks_count.toLocaleString()}</div>
+        </div>
+        <div class="detail-item">
+          <div class="label">👁️ Watchers</div>
+          <div class="val">${repo.watchers_count.toLocaleString()}</div>
+        </div>
+        <div class="detail-item">
+          <div class="label">🕐 Tạo</div>
+          <div class="val" style="font-size:.78rem">${timeAgo(repo.created_at)}</div>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <a class="btn btn-primary" href="${repo.html_url}" target="_blank" onclick="event.stopPropagation()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          Xem trên GitHub
+        </a>
+        <button class="btn btn-secondary" onclick="event.stopPropagation(); copyLink('${repo.html_url}', this)">
+          📋 Copy link
+        </button>
+      </div>
+    </div>
+
+    <div class="toggle-hint" style="margin-top:8px; color:var(--text2); font-size:.72rem">
+      Click để ${`<span class="expand-hint">xem thêm ▼</span>`}
+    </div>
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleCard(id) {
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+  card.classList.toggle('expanded');
+  const hint = card.querySelector('.expand-hint');
+  if (hint) hint.textContent = card.classList.contains('expanded') ? 'thu gọn ▲' : 'xem thêm ▼';
+}
+
+function copyLink(url, btn) {
+  navigator.clipboard.writeText(url).then(() => {
+    const old = btn.textContent;
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = old, 1500);
+  });
+}
+
+// ── Filter / Search ──────────────────────────────────────
+function filterCards() {
+  const q = document.getElementById('search').value.toLowerCase().trim();
+  const cards = document.querySelectorAll('.card');
+  let visible = 0;
+  cards.forEach(card => {
+    const text = card.textContent.toLowerCase();
+    const show = !q || text.includes(q);
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const total = allRepos.length;
+  document.getElementById('stats-bar').innerHTML =
+    `Hiển thị <span>${visible}</span> / ${total} repos ${q ? `(filter: "<b>${escHtml(q)}</b>")` : ''}`;
+}
+
+// ── Load ─────────────────────────────────────────────────
+async function loadRepos() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('loading');
+  renderSkeletons();
+  document.getElementById('stats-bar').innerHTML = 'Đang tải từ GitHub API...';
+
+  try {
+    allRepos = await fetchGitHub(activeDays, activeLang);
+    renderAll(allRepos);
+    const now = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' });
+    document.getElementById('last-updated').textContent = `Cập nhật: ${now}`;
+  } catch (e) {
+    document.getElementById('grid').innerHTML = `
+      <div id="empty">
+        <h3>⚠️ Không thể tải dữ liệu</h3>
+        <p>${e.message}</p>
+        <p style="margin-top:8px;font-size:.75rem">GitHub API giới hạn 60 req/giờ cho anonymous. Thử lại sau ít phút.</p>
+      </div>`;
+    document.getElementById('stats-bar').textContent = 'Lỗi kết nối GitHub API';
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+function renderAll(repos) {
+  const grid = document.getElementById('grid');
+  if (!repos.length) {
+    grid.innerHTML = '<div id="empty"><h3>Không có kết quả</h3><p>Thử thay đổi bộ lọc</p></div>';
+    document.getElementById('stats-bar').textContent = '0 repos';
+    return;
+  }
+  grid.innerHTML = repos.map((r, i) => renderCard(r, i)).join('');
+  document.getElementById('stats-bar').innerHTML =
+    `<span>${repos.length}</span> repo trending — sorted by ⭐ stars`;
+}
+
+// ── Pills ─────────────────────────────────────────────────
+document.getElementById('period-group').addEventListener('click', e => {
+  const pill = e.target.closest('.pill');
+  if (!pill) return;
+  document.querySelectorAll('#period-group .pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  activeDays = parseInt(pill.dataset.days);
+  loadRepos();
+});
+
+document.getElementById('lang-group').addEventListener('click', e => {
+  const pill = e.target.closest('.pill');
+  if (!pill) return;
+  document.querySelectorAll('#lang-group .pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  activeLang = pill.dataset.lang;
+  loadRepos();
+});
+
+// ── Auto-refresh mỗi 10 phút ─────────────────────────────
+setInterval(loadRepos, 10 * 60 * 1000);
+
+// ── Init ─────────────────────────────────────────────────
+loadRepos();
+</script>
+</body>
+</html>
